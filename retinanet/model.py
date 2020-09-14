@@ -6,7 +6,8 @@ import torch
 import torch.nn as nn
 
 from . import backbones as backbones_mod
-from ._C import Engine
+# SOREN:
+# from ._C import Engine
 from .box import generate_anchors, snap_to_anchors, decode, nms
 from .box import generate_anchors_rotated, snap_to_anchors_rotated, nms_rotated
 from .loss import FocalLoss, SmoothL1Loss
@@ -283,16 +284,18 @@ class Model(nn.Module):
         if onnx_only:
             return onnx_bytes.getvalue()
 
+        # SOREN: removed this dependency:
+        #
         # Build TensorRT engine
-        model_name = '_'.join([k for k, _ in self.backbones.items()])
-        anchors = []
-        if not self.rotated_bbox:
-            anchors = [generate_anchors(stride, self.ratios, self.scales, 
-                    self.angles).view(-1).tolist() for stride in self.strides]
-        else:
-            anchors = [generate_anchors_rotated(stride, self.ratios, self.scales, 
-                    self.angles)[0].view(-1).tolist() for stride in self.strides]
+        # model_name = '_'.join([k for k, _ in self.backbones.items()])
+        # anchors = []
+        # if not self.rotated_bbox:
+        #     anchors = [generate_anchors(stride, self.ratios, self.scales, 
+        #             self.angles).view(-1).tolist() for stride in self.strides]
+        # else:
+        #     anchors = [generate_anchors_rotated(stride, self.ratios, self.scales, 
+        #             self.angles)[0].view(-1).tolist() for stride in self.strides]
 
-        return Engine(onnx_bytes.getvalue(), len(onnx_bytes.getvalue()), dynamic_batch_opts, precision,
-                      self.threshold, self.top_n, anchors, self.rotated_bbox, self.nms, self.detections,
-                      calibration_files, model_name, calibration_table, verbose)
+        # return Engine(onnx_bytes.getvalue(), len(onnx_bytes.getvalue()), dynamic_batch_opts, precision,
+        #               self.threshold, self.top_n, anchors, self.rotated_bbox, self.nms, self.detections,
+        #               calibration_files, model_name, calibration_table, verbose)
