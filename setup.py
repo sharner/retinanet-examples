@@ -27,7 +27,7 @@ setup(
         'apex @ git+https://github.com/NVIDIA/apex',
         'pycocotools @ git+https://github.com/nvidia/cocoapi.git#subdirectory=PythonAPI',
         'pillow',
-        'requests',
+        'requests'        
     ],
     entry_points = {'console_scripts': ['odtk=retinanet.main:main']}
 )
