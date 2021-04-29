@@ -1,0 +1,87 @@
+FROM nvcr.io/nvidia/pytorch:20.11-py3
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install apt dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    nodejs \
+    npm \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1-mesa-glx \
+    lsb-release \
+    gpg-agent \
+    python3-cairocffi \
+    protobuf-compiler \
+    python3-pil \
+    python3-lxml \
+    python3-tk \
+    wget
+
+# Install gcloud and gsutil commands
+# https://cloud.google.com/sdk/docs/quickstart-debian-ubuntu
+RUN export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)" && \
+    echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+    apt-get update -y && apt-get install google-cloud-sdk -y
+
+WORKDIR /workspace
+
+ENV TF_CPP_MIN_LOG_LEVEL 3
+
+RUN set -eux; \
+    SWIPL_VER=7.6.4; \
+    SWIPL_CHECKSUM=2d3d7aabd6d99a02dcc2da5d7604e3500329e541c6f857edc5aa06a3b1267891; \
+    BUILD_DEPS='make cmake gcc g++ autoconf libarchive-dev libgmp-dev libossp-uuid-dev libpcre3-dev libreadline-dev libedit-dev libssl-dev zlib1g-dev libdb-dev unixodbc-dev libsqlite3-dev libserd-dev libraptor2-dev libgeos++-dev libspatialindex-dev'; \
+    dpkgArch="$(dpkg --print-architecture)"; \
+    [ "$dpkgArch" = 'armhf' ] || [ "$dpkgArch" = 'armel' ] || BUILD_DEPS="$BUILD_DEPS librocksdb-dev"; \
+    apt-get update; apt-get install -y --no-install-recommends $BUILD_DEPS; rm -rf /var/lib/apt/lists/*; \
+    mkdir /tmp/src; \
+    cd /tmp/src; \
+    wget http://www.swi-prolog.org/download/stable/src/swipl-7.6.4.tar.gz; \
+    echo "$SWIPL_CHECKSUM  swipl-$SWIPL_VER.tar.gz" >> swipl-$SWIPL_VER.tar.gz-CHECKSUM; \
+    sha256sum -c swipl-$SWIPL_VER.tar.gz-CHECKSUM; \
+    tar -xzf swipl-$SWIPL_VER.tar.gz; \
+        cd swipl-$SWIPL_VER ; \
+        ./configure ; \
+    LANG=C.UTF8 make; \
+    LANG=C.UTF8 make install; \
+    rm -rf /tmp/src; \
+    mkdir -p /usr/lib/swipl/pack; \
+    cd /usr/lib/swipl/pack; \
+    dpkgArch="$(dpkg --print-architecture)";
+
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
+    && sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" > /etc/apt/sources.list.d/PostgreSQL.list' \
+    && apt-get update && apt-get install -y postgresql-client-10
+
+COPY . /workspace
+ARG KEY_NAME=development-219501-a93136dc9d83.json
+ARG ACCOUNT_NAME=ljcv-notebook@development-219501.iam.gserviceaccount.com
+ARG PROJECT=development-219501
+ARG KEY_FILE=/workspace/${KEY_NAME}
+
+ENV LAYERJOT_HOME="/layerjot"
+ENV GOOGLE_APPLICATION_CREDENTIALS=${KEY_FILE}
+ENV PATH=$PATH:/usr/local/gcloud/google-cloud-sdk/bin
+
+RUN gcloud auth activate-service-account \
+    ${ACCOUNT_NAME} --key-file=${KEY_FILE} --project=${PROJECT}
+
+RUN cd /workspace && pip install -r torch_requirements.txt \
+    && python -m pip install --upgrade pip
+
+# RUN git clone --recurse-submodules https://github.com/onnx/onnx-tensorrt.git \
+#     && cd onnx-tensorrt && mkdir build && cd build \
+#     && cmake .. && make install \
+#     && cd ../.. && rm -rf onnx-tensorrt
+
+# RUN git clone https://github.com/sharner/SoftTriple.git \
+#     && cd SoftTriple && python setup.py install
+
+RUN git clone https://github.com/sharner/retinanet-examples.git \
+    && cd retinanet-examples \
+    && pip install --no-cache-dir -e .
+
