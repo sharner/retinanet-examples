@@ -5,6 +5,8 @@ import math
 import torch
 import torch.nn as nn
 
+from . import backbones as backbones_mod
+
 class Model(nn.Module):
     'RetinaNet - https://arxiv.org/abs/1708.02002'
 
